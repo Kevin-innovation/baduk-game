@@ -14,8 +14,9 @@ export default function Home() {
     currentPlayer: 'black',
     capturedBlack: 0,
     capturedWhite: 0,
-    history: [createEmptyBoard()],
+    history: [],
     lastMove: null,
+    isAIMode: false
   });
 
   const [isAIEnabled, setIsAIEnabled] = useState(true);
@@ -35,6 +36,7 @@ export default function Home() {
       capturedWhite: capturedW + captured,
       history: [...gameState.history, newBoard],
       lastMove: aiMove,
+      isAIMode: true
     });
   };
 
@@ -54,6 +56,7 @@ export default function Home() {
       capturedWhite: newCapturedWhite,
       history: [...gameState.history, newBoard],
       lastMove: pos,
+      isAIMode: true
     });
 
     // AI 턴 처리
@@ -67,6 +70,13 @@ export default function Home() {
         }
       }, 500);
     }
+  };
+
+  const toggleAI = () => {
+    setGameState({
+      ...gameState,
+      isAIMode: !gameState.isAIMode
+    });
   };
 
   return (
@@ -85,12 +95,12 @@ export default function Home() {
       <div className="flex flex-col items-center space-y-4 mt-8">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => setIsAIEnabled(true)}
+            onClick={toggleAI}
             className={`px-4 py-2 rounded ${
-              isAIEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+              gameState.isAIMode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
             }`}
           >
-            AI Mode
+            {gameState.isAIMode ? 'AI 모드 끄기' : 'AI 모드 켜기'}
           </button>
           <button
             onClick={() => setIsAIEnabled(false)}
@@ -118,7 +128,7 @@ export default function Home() {
 
       <div className="mt-8">
         <Board
-          isAIMode={isAIEnabled}
+          isAIMode={gameState.isAIMode}
           currentPlayer={gameState.currentPlayer}
           setCurrentPlayer={(player) => setGameState({ ...gameState, currentPlayer: player })}
           capturedBlack={gameState.capturedBlack}
