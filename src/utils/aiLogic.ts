@@ -1,5 +1,5 @@
 import { BoardState, Position, StoneColor } from '../types/game';
-import { getAdjacentPositions, findGroup, isValidMove } from './gameLogic';
+import { getAdjacentPositions, findGroup, isValidMove, checkCaptures, findConnectedStones, hasLiberties } from './gameLogic';
 
 const BOARD_SIZE = 19;
 
@@ -651,9 +651,181 @@ const isOnePointJump = (board: BoardState, pos: Position, color: StoneColor): bo
 };
 
 // 자유도 계산
-const countLiberties = (board: BoardState, pos: Position, color: StoneColor): number => {
+function countLiberties(
+  board: BoardState,
+  target: Position | Position[],
+  color?: StoneColor
+): number {
+  const liberties = new Set<string>();
+  const stones: Position[] = Array.isArray(target) ? target : [];
+
+  if (!Array.isArray(target) && color) {
+    // 단일 위치에 대한 자유도 계산
+    const tempBoard = board.map(row => [...row]);
+    tempBoard[target.row][target.col] = color;
+    const group = findGroup(tempBoard, target, color);
+    return group.liberties.length;
+  }
+
+  // 돌 그룹에 대한 자유도 계산
+  for (const stone of stones) {
+    const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [dx, dy] of directions) {
+      const newRow = stone.row + dx;
+      const newCol = stone.col + dy;
+      
+      if (
+        newRow >= 0 && newRow < 19 &&
+        newCol >= 0 && newCol < 19 &&
+        board[newRow][newCol] === null
+      ) {
+        liberties.add(`${newRow},${newCol}`);
+      }
+    }
+  }
+
+  return liberties.size;
+}
+
+export function findBestMove(
+  board: BoardState,
+  color: StoneColor,
+  difficulty: Difficulty = 'medium'
+): Position | null {
+  const validMoves = getAllValidMoves(board, color);
+  if (validMoves.length === 0) return null;
+
+  // 난이도에 따른 전략 선택
+  switch (difficulty) {
+    case 'hard':
+      return findStrategicMove(board, color, validMoves);
+    case 'medium':
+      return findBalancedMove(board, color, validMoves);
+    case 'easy':
+    default:
+      return findRandomMove(validMoves);
+  }
+}
+
+function getAllValidMoves(board: BoardState, color: StoneColor): Position[] {
+  const validMoves: Position[] = [];
+  
+  for (let row = 0; row < 19; row++) {
+    for (let col = 0; col < 19; col++) {
+      if (isValidMove(board, { row, col }, color)) {
+        validMoves.push({ row, col });
+      }
+    }
+  }
+
+  return validMoves;
+}
+
+function findStrategicMove(
+  board: BoardState,
+  color: StoneColor,
+  validMoves: Position[]
+): Position {
+  // 각 수의 점수 계산
+  const scoredMoves = validMoves.map(move => ({
+    move,
+    score: evaluateMove(board, move, color)
+  }));
+
+  // 최고 점수의 수 선택
+  scoredMoves.sort((a, b) => b.score - a.score);
+  return scoredMoves[0].move;
+}
+
+function findBalancedMove(
+  board: BoardState,
+  color: StoneColor,
+  validMoves: Position[]
+): Position {
+  // 중앙 근처에 둘 확률을 높임
+  const weightedMoves = validMoves.map(move => {
+    const distanceFromCenter = Math.sqrt(
+      Math.pow(move.row - 9, 2) + Math.pow(move.col - 9, 2)
+    );
+    const baseWeight = 1 / (distanceFromCenter + 1);
+    const score = evaluateMove(board, move, color);
+    return {
+      move,
+      weight: baseWeight * (1 + score / 10)
+    };
+  });
+
+  // 가중치에 따른 랜덤 선택
+  const totalWeight = weightedMoves.reduce((sum, { weight }) => sum + weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const { move, weight } of weightedMoves) {
+    random -= weight;
+    if (random <= 0) {
+      return move;
+    }
+  }
+
+  return weightedMoves[0].move;
+}
+
+function findRandomMove(validMoves: Position[]): Position {
+  const index = Math.floor(Math.random() * validMoves.length);
+  return validMoves[index];
+}
+
+function evaluateMove(board: BoardState, pos: Position, color: StoneColor): number {
+  let score = 0;
+  const opponent = color === 'black' ? 'white' : 'black';
+
+  // 1. 자유도 평가
   const tempBoard = board.map(row => [...row]);
   tempBoard[pos.row][pos.col] = color;
-  const group = findGroup(tempBoard, pos, color);
-  return group.liberties.length;
-}; 
+  const group = findConnectedStones(tempBoard, pos);
+  const liberties = countLiberties(tempBoard, group);
+  score += liberties * 2;
+
+  // 2. 상대방 돌 잡기 가능성 평가
+  const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  for (const [dx, dy] of directions) {
+    const newRow = pos.row + dx;
+    const newCol = pos.col + dy;
+    
+    if (
+      newRow >= 0 && newRow < 19 &&
+      newCol >= 0 && newCol < 19 &&
+      board[newRow][newCol] === opponent
+    ) {
+      const opponentGroup = findConnectedStones(tempBoard, { row: newRow, col: newCol });
+      const opponentLiberties = countLiberties(tempBoard, opponentGroup);
+      if (opponentLiberties === 1) {
+        score += 10 * opponentGroup.length;
+      }
+    }
+  }
+
+  // 3. 중앙 선호도
+  const distanceFromCenter = Math.sqrt(
+    Math.pow(pos.row - 9, 2) + Math.pow(pos.col - 9, 2)
+  );
+  score += Math.max(0, 5 - distanceFromCenter);
+
+  // 4. 화점 근처 선호
+  const starPoints = [
+    [3, 3], [3, 9], [3, 15],
+    [9, 3], [9, 9], [9, 15],
+    [15, 3], [15, 9], [15, 15]
+  ];
+  
+  const nearestStarPoint = Math.min(
+    ...starPoints.map(([r, c]) =>
+      Math.sqrt(Math.pow(pos.row - r, 2) + Math.pow(pos.col - c, 2))
+    )
+  );
+  
+  if (nearestStarPoint <= 2) {
+    score += 3;
+  }
+
+  return score;
+} 

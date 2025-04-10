@@ -1,20 +1,21 @@
-export type StoneColor = 'black' | 'white' | null;
+export type StoneColor = 'black' | 'white';
 
-export type Position = {
+export interface Position {
   row: number;
   col: number;
-};
+}
 
-export type BoardState = StoneColor[][];
+export type BoardState = (StoneColor | null)[][];
 
-export type GameState = {
+export interface GameState {
   board: BoardState;
   currentPlayer: StoneColor;
   capturedBlack: number;
   capturedWhite: number;
   history: BoardState[];
   lastMove: Position | null;
-};
+  isAIMode: boolean;
+}
 
 export type Liberty = {
   position: Position;

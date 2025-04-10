@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useState } from 'react';
+import Image from 'next/image';
 import Board from '../components/Board';
 import { GameState, Position, BoardState, StoneColor } from '../types/game';
 import { createEmptyBoard, makeMove, isValidMove } from '../utils/gameLogic';
@@ -69,52 +70,65 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-100">
-      {/* 상단 상태 표시줄 */}
-      <div className="w-full bg-white shadow-md p-4 mb-8">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <span className="text-xl font-semibold">
-              Current Player: {gameState.currentPlayer === 'black' ? '⚫' : '⚪'}
-              {isAIThinking && ' (AI 생각 중...)'}
-            </span>
-            <span className="text-lg">
-              Captured Black: {gameState.capturedBlack}
-            </span>
-            <span className="text-lg">
-              Captured White: {gameState.capturedWhite}
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-              onClick={() => setIsAIEnabled(!isAIEnabled)}
-            >
-              AI: {isAIEnabled ? 'ON' : 'OFF'}
-            </button>
-            {isAIEnabled && (
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            )}
-          </div>
+    <main className="flex flex-col items-center min-h-screen bg-gray-100">
+      <div className="flex items-center space-x-2 mt-4">
+        <Image 
+          src="/kevin.png" 
+          alt="DLAB Kevin Logo" 
+          width={40} 
+          height={40} 
+          className="rounded"
+        />
+        <h1 className="text-2xl font-bold text-gray-800">DLAB_Kevin</h1>
+      </div>
+      
+      <div className="flex flex-col items-center space-y-4 mt-8">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setIsAIEnabled(true)}
+            className={`px-4 py-2 rounded ${
+              isAIEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            AI Mode
+          </button>
+          <button
+            onClick={() => setIsAIEnabled(false)}
+            className={`px-4 py-2 rounded ${
+              !isAIEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            2P Mode
+          </button>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <p className="text-center text-lg font-semibold mb-2">
+            Current Player: {gameState.currentPlayer === 'black' ? '⚫' : '⚪'}
+            {isAIThinking && ' (AI 생각 중...)'}
+          </p>
+          <p className="text-center">
+            Captured Black: {gameState.capturedBlack} | Captured White: {gameState.capturedWhite}
+          </p>
+          <p className="text-center text-sm text-gray-600">
+            {isAIEnabled ? 'AI Mode: ON' : '2P Mode: ON'}
+          </p>
         </div>
       </div>
 
-      {/* 바둑판 */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="mt-8">
         <Board
-          board={gameState.board}
+          isAIMode={isAIEnabled}
+          currentPlayer={gameState.currentPlayer}
+          setCurrentPlayer={(player) => setGameState({ ...gameState, currentPlayer: player })}
+          capturedBlack={gameState.capturedBlack}
+          setCapturedBlack={(captured) => setGameState({ ...gameState, capturedBlack: captured })}
+          capturedWhite={gameState.capturedWhite}
+          setCapturedWhite={(captured) => setGameState({ ...gameState, capturedWhite: captured })}
           onMove={handleMove}
           lastMove={gameState.lastMove}
         />
       </div>
-    </div>
+    </main>
   );
 } 
